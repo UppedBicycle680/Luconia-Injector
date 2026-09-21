@@ -72,21 +72,21 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <EmbedManifest>true</EmbedManifest>
-    <IncludePath>$(SolutionDir)\LuconiaInjector\curl\includes;$(SolutionDir)\LuconiaInjector\nlohmann;$(SolutionDir)\LuconiaInjector\Discord SDK\src;$(SolutionDir)\LuconiaInjector\Discord SDK\include;$(IncludePath);$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
-    <LibraryPath>$(SolutionDir)\LuconiaInjector\curl\lib;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+    <IncludePath>$(SolutionDir)\LuconiaInjector\nlohmann;$(SolutionDir)\LuconiaInjector\Discord SDK\src;$(SolutionDir)\LuconiaInjector\Discord SDK\include;$(IncludePath);$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <EmbedManifest>true</EmbedManifest>
-    <IncludePath>$(SolutionDir)\LuconiaInjector\curl\includes;$(SolutionDir)\LuconiaInjector\nlohmann;$(SolutionDir)\LuconiaInjector\Discord SDK\src;$(SolutionDir)\LuconiaInjector\Discord SDK\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)\LuconiaInjector\curl\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)\LuconiaInjector\nlohmann;$(SolutionDir)\LuconiaInjector\Discord SDK\src;$(SolutionDir)\LuconiaInjector\Discord SDK\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)\LuconiaInjector\curl\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>advapi32.lib;crypt32.lib;normaliz.lib;ws2_32.lib;wldap32.lib;libcurl_a.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;crypt32.lib;normaliz.lib;ws2_32.lib;wldap32.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -95,8 +95,8 @@
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)\LuconiaInjector\curl\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>advapi32.lib;crypt32.lib;normaliz.lib;ws2_32.lib;wldap32.lib;libcurl_a.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>advapi32.lib;crypt32.lib;normaliz.lib;ws2_32.lib;wldap32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>

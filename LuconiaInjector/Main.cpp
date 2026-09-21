@@ -3,7 +3,6 @@
 #include "Discord.h"
 #include "Inject.h"
 #include "Utils.h"
-#include "Downloader.h"
 
 #include <iostream>
 #include "Config.h"
@@ -41,7 +40,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
     Discord::init();
     Config::init();
-    Downloader::init();
 
     if (Config::config["settings"]["show_discord_rpc"]) Discord::update();
 
@@ -55,6 +53,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 void InjectSelectedDll(HWND hWnd)
 {
+    wchar_t selectedPath[1024]{};
+    GetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), selectedPath, _countof(selectedPath));
+    std::wstring wstring = selectedPath;
+    WString wstr = wstring;
+
+    std::ifstream existsPath(wstr.to_string());
+
+    if (!existsPath)
+    {
+        std::wstring text = L"Select a trusted client DLL first";
+        SetDlgItemTextW(hWnd, 5, text.c_str());
+        return;
+    }
+    existsPath.close();
+
     ShellExecute(hWnd, L"open", L"shell:appsFolder\\Microsoft.MinecraftUWP_8wekyb3d8bbwe!App", NULL, NULL, 0);
     while (true) if (GetProcId(L"Minecraft.Windows.exe") != NULL) break;
 
@@ -66,39 +79,6 @@ void InjectSelectedDll(HWND hWnd)
         return;
     }
 
-    static bool alreadyAsked = false;
-    if (!Config::config["settings"]["use_custom_path"])
-    {
-        if (!alreadyAsked)
-        {
-            Downloader::checkUpdate(true);
-            alreadyAsked = true;
-        }
-    }
-
-    std::wstring wstring;
-    if (!Config::config["settings"]["use_custom_path"])
-    {
-        String path = Downloader::filePath;
-        wstring = path.to_wstring();
-    }
-    else
-    {
-        wchar_t wc[1024];
-        GetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), wc, 1024);
-        wstring = wc;
-    }
-    WString wstr = wstring;
-
-    std::ifstream existsPath(wstr.to_string());
-
-    if (!existsPath)
-    {
-        std::wstring text = L"Process found! | " + std::to_wstring(processId) + L" | Invalid path";
-        SetDlgItemTextW(hWnd, 5, text.c_str());
-        return;
-    }
-    existsPath.close();
 
     SetAccessControl(wstr.to_wstr(), L"S-1-15-2-1");
     Inject(processId, wstr.c_str());
@@ -112,24 +92,6 @@ void InjectSelectedDll(HWND hWnd)
 
     std::string status = "Process found! | " + std::to_string(processId) + " | Injected";
     SetDlgItemTextA(hWnd, 5, status.c_str());
-}
-
-void pathEditDisabled(HWND hWnd)
-{
-    if (!Config::config["settings"]["use_custom_path"])
-    {
-        wchar_t wc[1024];
-        GetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), wc, 1024);
-        WString wstr = wc;
-        String str = (std::string)Config::config["settings"]["custom_path"];
-
-        if (Config::config["settings"]["custom_path"] == "")
-        {
-            if (wstr.to_string() == "") SetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), L"Enable custom dll to change the path");
-            else SetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), wc);
-        }
-        else SetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), str.to_wstring().c_str());
-    }
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)                                                                                                                                                              
@@ -151,19 +113,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         SendMessage(GetDlgItem(hWnd, ID_PATH_EDIT), EM_SETCUEBANNER, FALSE, (LPARAM)placeholderText);
         
-        CreateWindow(L"BUTTON", TEXT("Custom dll"), WS_VISIBLE | WS_CHILD | BS_CHECKBOX, 143, 10, 1000, 20, hWnd, (HMENU)ID_CHECK_CUSTOM_DLL, NULL, NULL);
+        CreateWindow(L"BUTTON", TEXT("Select DLL manually"), WS_VISIBLE | WS_CHILD | BS_CHECKBOX | WS_DISABLED, 143, 10, 1000, 20, hWnd, (HMENU)ID_CHECK_CUSTOM_DLL, NULL, NULL);
         CreateWindow(L"BUTTON", TEXT("Show Discord RPC"), WS_VISIBLE | WS_CHILD | BS_CHECKBOX, 143, 30, 1000, 20, hWnd, (HMENU)ID_CHECK_SHOW_DISCORD_RPC_DLL, NULL, NULL);
         CreateWindow(L"BUTTON", TEXT("Close after inject"), WS_VISIBLE | WS_CHILD | BS_CHECKBOX, 143, 50, 1000, 20, hWnd, (HMENU)ID_CHECK_CLOSE_AFTER_INJECT_DLL, NULL, NULL);
 
-        CheckDlgButton(hWnd, ID_CHECK_CUSTOM_DLL, Config::config["settings"]["use_custom_path"] ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(hWnd, ID_CHECK_CUSTOM_DLL, BST_CHECKED);
         CheckDlgButton(hWnd, ID_CHECK_SHOW_DISCORD_RPC_DLL, Config::config["settings"]["show_discord_rpc"] ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(hWnd, ID_CHECK_CLOSE_AFTER_INJECT_DLL, Config::config["settings"]["close_after_inject"] ? BST_CHECKED : BST_UNCHECKED);
         //CheckDlgButton(hWnd, 2, BST_CHECKED);
 
-        EnableWindow(GetDlgItem(hWnd, ID_SELECT_BUTTON), Config::config["settings"]["use_custom_path"]);
-        EnableWindow(GetDlgItem(hWnd, ID_PATH_EDIT), Config::config["settings"]["use_custom_path"]);
+        EnableWindow(GetDlgItem(hWnd, ID_SELECT_BUTTON), TRUE);
+        EnableWindow(GetDlgItem(hWnd, ID_PATH_EDIT), TRUE);
 
-        pathEditDisabled(hWnd);
 
         std::string str = "Version 1.0 | Minecraft Version " + Minecraft::getVersion();
         std::wstring wstr = std::wstring(str.begin(), str.end());
@@ -223,31 +184,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         int id = LOWORD(wParam);
         switch (id)
         {
-        case ID_CHECK_CUSTOM_DLL:
-        {
-            BOOL checked = IsDlgButtonChecked(hWnd, ID_CHECK_CUSTOM_DLL);
-            if (checked)
-            {
-                CheckDlgButton(hWnd, ID_CHECK_CUSTOM_DLL, BST_UNCHECKED);
-                EnableWindow(GetDlgItem(hWnd, ID_SELECT_BUTTON), FALSE);
-                EnableWindow(GetDlgItem(hWnd, ID_PATH_EDIT), FALSE);
-                Config::config["settings"]["use_custom_path"] = false;
-                Config::save();
-                
-                pathEditDisabled(hWnd);
-            }
-            else
-            {
-                CheckDlgButton(hWnd, ID_CHECK_CUSTOM_DLL, BST_CHECKED);
-                EnableWindow(GetDlgItem(hWnd, ID_SELECT_BUTTON), TRUE);
-                EnableWindow(GetDlgItem(hWnd, ID_PATH_EDIT), TRUE);
-                Config::config["settings"]["use_custom_path"] = true;
-                Config::save();
-
-                SetWindowText(GetDlgItem(hWnd, ID_PATH_EDIT), NULL);
-            }
-            break;
-        }
         case ID_CHECK_CLOSE_AFTER_INJECT_DLL:
         {
             BOOL checked = IsDlgButtonChecked(hWnd, ID_CHECK_CLOSE_AFTER_INJECT_DLL);
@@ -298,7 +234,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             openDialog.lStructSize = sizeof(OPENFILENAME);
             openDialog.hwndOwner = hWnd;
             openDialog.lpstrFile = path;
-            openDialog.nMaxFile = sizeof(path);
+            openDialog.nMaxFile = _countof(path);
             openDialog.lpstrFilter = L"Dynamic link library (*.dll)\0*.dll\0Show all files (*.*)\0*.*\0";
 
             if (GetOpenFileName(&openDialog) != 0) 

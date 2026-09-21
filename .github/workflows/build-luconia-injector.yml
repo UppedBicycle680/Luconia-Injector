@@ -7,13 +7,35 @@ on:
     paths:
       - 'LuconiaInjector.sln'
       - 'LuconiaInjector/**'
+      - 'tests/**'
       - '.github/workflows/build-luconia-injector.yml'
 
 permissions:
   contents: read
 
 jobs:
+  security-tests:
+    name: Security regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify download removal and build dependencies
+        run: python3 tests/test_security_build.py
+      - name: Build parser tests with memory checks
+        run: >-
+          g++ -std=c++17 -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer
+          -I"LuconiaInjector/Discord SDK/src" -I"LuconiaInjector/Discord SDK/include"
+          tests/rpc_security_tests.cpp
+          "LuconiaInjector/Discord SDK/src/rpc_connection.cpp"
+          "LuconiaInjector/Discord SDK/src/serialization.cpp"
+          -o /tmp/rpc-security-tests
+      - name: Test malformed and legitimate messages
+        env:
+          ASAN_OPTIONS: detect_stack_use_after_return=1
+        run: /tmp/rpc-security-tests
+
   build:
+    needs: security-tests
     name: Release x64
     runs-on: windows-latest
     timeout-minutes: 20

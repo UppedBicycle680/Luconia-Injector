@@ -113,7 +113,10 @@ bool BaseConnection::Read(void* data, size_t length)
             DWORD bytesToRead = (DWORD)length;
             DWORD bytesRead = 0;
             if (::ReadFile(self->pipe, data, bytesToRead, &bytesRead, nullptr) == TRUE) {
-                assert(bytesToRead == bytesRead);
+                if (bytesToRead != bytesRead) {
+                    Close();
+                    return false;
+                }
                 return true;
             }
             else {

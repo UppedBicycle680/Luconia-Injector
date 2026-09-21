@@ -156,7 +156,7 @@ public:
     size_t Size() const { return stringBuffer_.GetSize(); }
 };
 
-using JsonDocumentBase = rapidjson::GenericDocument<UTF8, PoolAllocator, StackAllocator>;
+using JsonDocumentBase = rapidjson::GenericDocument<UTF8, PoolAllocator, MallocAllocator>;
 class JsonDocument : public JsonDocumentBase {
 public:
     static const int kDefaultChunkCapacity = 32 * 1024;
@@ -165,11 +165,11 @@ public:
     char parseBuffer_[32 * 1024];
     MallocAllocator mallocAllocator_;
     PoolAllocator poolAllocator_;
-    StackAllocator stackAllocator_;
+    MallocAllocator stackAllocator_;
     JsonDocument()
       : JsonDocumentBase(rapidjson::kObjectType,
                          &poolAllocator_,
-                         sizeof(stackAllocator_.fixedBuffer_),
+                         2048,
                          &stackAllocator_)
       , poolAllocator_(parseBuffer_, sizeof(parseBuffer_), kDefaultChunkCapacity, &mallocAllocator_)
       , stackAllocator_()
@@ -181,7 +181,7 @@ using JsonValue = rapidjson::GenericValue<UTF8, PoolAllocator>;
 
 inline JsonValue* GetObjMember(JsonValue* obj, const char* name)
 {
-    if (obj) {
+    if (obj && obj->IsObject()) {
         auto member = obj->FindMember(name);
         if (member != obj->MemberEnd() && member->value.IsObject()) {
             return &member->value;
@@ -192,7 +192,7 @@ inline JsonValue* GetObjMember(JsonValue* obj, const char* name)
 
 inline int GetIntMember(JsonValue* obj, const char* name, int notFoundDefault = 0)
 {
-    if (obj) {
+    if (obj && obj->IsObject()) {
         auto member = obj->FindMember(name);
         if (member != obj->MemberEnd() && member->value.IsInt()) {
             return member->value.GetInt();
@@ -205,7 +205,7 @@ inline const char* GetStrMember(JsonValue* obj,
                                 const char* name,
                                 const char* notFoundDefault = nullptr)
 {
-    if (obj) {
+    if (obj && obj->IsObject()) {
         auto member = obj->FindMember(name);
         if (member != obj->MemberEnd() && member->value.IsString()) {
             return member->value.GetString();

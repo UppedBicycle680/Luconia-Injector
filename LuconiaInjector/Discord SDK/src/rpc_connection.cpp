@@ -68,6 +68,7 @@ void RpcConnection::Close()
 
 bool RpcConnection::Write(const void* data, size_t length)
 {
+    if (length > sizeof(sendFrame.message) || (!data && length)) return false;
     sendFrame.opcode = Opcode::Frame;
     memcpy(sendFrame.message, data, length);
     sendFrame.length = (uint32_t)length;
@@ -83,7 +84,7 @@ bool RpcConnection::Read(JsonDocument& message)
     if (state != State::Connected && state != State::SentHandshake) {
         return false;
     }
-    MessageFrame readFrame;
+    MessageFrame readFrame{};
     for (;;) {
         bool didRead = connection->Read(&readFrame, sizeof(MessageFrameHeader));
         if (!didRead) {
@@ -95,6 +96,12 @@ bool RpcConnection::Read(JsonDocument& message)
             return false;
         }
 
+        if (readFrame.length >= sizeof(readFrame.message)) {
+            lastErrorCode = (int)ErrorCode::ReadCorrupt;
+            StringCopy(lastErrorMessage, "IPC frame too large");
+            Close();
+            return false;
+        }
         if (readFrame.length > 0) {
             didRead = connection->Read(readFrame.message, readFrame.length);
             if (!didRead) {
@@ -103,19 +110,34 @@ bool RpcConnection::Read(JsonDocument& message)
                 Close();
                 return false;
             }
-            readFrame.message[readFrame.length] = 0;
         }
+        readFrame.message[readFrame.length] = 0;
 
+        if (readFrame.opcode == Opcode::Frame || readFrame.opcode == Opcode::Close) {
+            if (memchr(readFrame.message, '\0', readFrame.length)) {
+                lastErrorCode = (int)ErrorCode::ReadCorrupt;
+                StringCopy(lastErrorMessage, "NUL byte in IPC JSON");
+                Close();
+                return false;
+            }
+            // Copy strings into owned storage; iterative parsing avoids recursive depth.
+            message.Parse<rapidjson::kParseIterativeFlag | rapidjson::kParseValidateEncodingFlag>(
+                readFrame.message, readFrame.length);
+            if (message.HasParseError() || !message.IsObject()) {
+                lastErrorCode = (int)ErrorCode::ReadCorrupt;
+                StringCopy(lastErrorMessage, "Invalid IPC JSON object");
+                Close();
+                return false;
+            }
+        }
         switch (readFrame.opcode) {
         case Opcode::Close: {
-            message.ParseInsitu(readFrame.message);
             lastErrorCode = GetIntMember(&message, "code");
             StringCopy(lastErrorMessage, GetStrMember(&message, "message", ""));
             Close();
             return false;
         }
         case Opcode::Frame:
-            message.ParseInsitu(readFrame.message);
             return true;
         case Opcode::Ping:
             readFrame.opcode = Opcode::Pong;
