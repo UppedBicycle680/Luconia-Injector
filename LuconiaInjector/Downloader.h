@@ -29,32 +29,47 @@ public:
 	static void init()
 	{
 		filePath = Config::directory + "luconia.dll";
-		CURL* curl = curl_easy_init();
+		latestVersion.clear();
+		std::ifstream file(Config::directory + "version");
+		file >> installedVersion;
+		file.close();
 
+		// A manually selected DLL does not depend on the update service.
+		if (Config::config["settings"]["use_custom_path"]) return;
+
+		CURLcode result = CURLE_FAILED_INIT;
+		CURL* curl = curl_easy_init();
 		if (curl)
 		{
 			curl_easy_setopt(curl, CURLOPT_URL, "https://media.luconia.net/version.txt");
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writefunc);
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &latestVersion);
-
-			curl_easy_perform(curl);
-			curl_easy_cleanup(curl);	
+			curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+			curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+			result = curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
 		}
 
-		if (latestVersion.empty())
+		// Reject failed requests and HTML/error responses, and trim text-file newlines.
+		const auto first = latestVersion.find_first_not_of(" \t\r\n");
+		const auto last = latestVersion.find_last_not_of(" \t\r\n");
+		latestVersion = first == std::string::npos ? "" : latestVersion.substr(first, last - first + 1);
+		if (result != CURLE_OK || latestVersion.empty() || latestVersion.size() > 128 ||
+			latestVersion.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") != std::string::npos ||
+			latestVersion == "." || latestVersion == "..")
 		{
+			latestVersion.clear();
 			MessageBox(
 				NULL,
-				L"Failed to get the latest client version\nMake sure that you are connected to the internet",
-				L"An error occurred",
-				MB_ICONERROR | MB_OK | MB_DEFBUTTON2
+				L"The Luconia update service could not be reached or returned an invalid version.\n"
+				L"The injector will still open. An existing Luconia DLL can be used,\n"
+				L"or enable Custom dll and select a compatible client DLL.",
+				L"Updates unavailable",
+				MB_ICONWARNING | MB_OK
 			);
-			terminate();
+			return;
 		}
-
-		std::ifstream file(Config::directory + "version");
-		file >> installedVersion;
-		file.close();
 
 		download();
 		checkUpdate(false);
@@ -62,6 +77,7 @@ public:
 
 	static void download()
 	{
+		if (latestVersion.empty()) return;
 		String url = "https://media.luconia.net/" + latestVersion + "/luconia.dll";
 		String path = filePath;
 
@@ -130,6 +146,8 @@ public:
 
 	static void checkUpdate(bool askUser)
 	{
+		// Never delete the installed DLL when the version lookup failed.
+		if (latestVersion.empty()) return;
 		if (askUser)
 		{
 			if (installedVersion != latestVersion)
