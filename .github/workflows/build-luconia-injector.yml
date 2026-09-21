@@ -25,6 +25,9 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Build Release x64
+        env:
+          # C++/WinRT APIs used by the project require the Windows umbrella library.
+          LINK: windowsapp.lib
         run: msbuild LuconiaInjector.sln /m /p:Configuration=Release /p:Platform=x64
 
       - name: Upload LuconiaInjector.exe
