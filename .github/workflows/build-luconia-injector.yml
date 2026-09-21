@@ -1,0 +1,35 @@
+name: Build LuconiaInjector
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'LuconiaInjector.sln'
+      - 'LuconiaInjector/**'
+      - '.github/workflows/build-luconia-injector.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Release x64
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release x64
+        run: msbuild LuconiaInjector.sln /m /p:Configuration=Release /p:Platform=x64
+
+      - name: Upload LuconiaInjector.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuconiaInjector-Release-x64
+          path: x64/Release/LuconiaInjector.exe
+          if-no-files-found: error
